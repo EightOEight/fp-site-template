@@ -14,6 +14,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Skip on the very first push of a forked-from-template repo while
+    # template-cleanup.yml is still present. Cleanup self-deletes the
+    # workflow and then triggers this job manually so the published image
+    # reflects the substituted Dockerfile labels (not the upstream template).
+    if: ${{ hashFiles('.github/workflows/template-cleanup.yml') == '' }}
     env:
       REGISTRY: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
 
