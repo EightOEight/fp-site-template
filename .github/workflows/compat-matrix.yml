@@ -1,0 +1,98 @@
+name: compat-matrix
+
+# Lightweight PHP × WordPress compatibility check.
+#
+# Runs the supported runtime matrix (3 PHPs × 2 WP minors = 6 cells)
+# inside the actual fp-runtime image for that PHP — so the PHP version
+# under test is the same binary that ships to production. No image is
+# built or pushed; this is purely a regression smoke.
+#
+# What it catches:
+#   - "this PHP X.Y × this WP Z.W can't even composer install"
+#   - "this PHP rejects a syntax that WP core uses"
+#   - "this WP install drifted from upstream checksums"
+#
+# What it does NOT catch:
+#   - runtime / behavioural regressions (no DB, no HTTP request lifecycle)
+#   - plugin/theme compatibility (WP core only)
+#
+# Decision context: ../../.aidocs/php-wp-runtime-matrix.md (in the
+# frankenpress workspace).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Nightly at 06:00 UTC — catches upstream point releases admitted by
+    # the `~X.Y.0` constraint without anyone touching this repo.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  compat:
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
+        wp: ["6.8", "6.9"]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/eightoeight/fp-runtime:php${{ matrix.php }}
+      # The runtime image runs unprivileged in production, but for CI we
+      # need root so composer can write to the workspace and install-php-
+      # extensions / wp-cli paths stay accessible.
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bootstrap composer
+        # The fp-runtime image is the production runtime — it ships PHP
+        # and wp-cli but not composer (composer lives in the site image's
+        # build stage, not the runtime). Pull a fresh composer phar so
+        # we can resolve and install dependencies.
+        run: |
+          set -euo pipefail
+          curl -fsSL https://getcomposer.org/installer | php -- \
+            --install-dir=/usr/local/bin --filename=composer --quiet
+          composer --version
+
+      - name: Pin WordPress to ${{ matrix.wp }}.x and install
+        # `~X.Y.0` keeps us on this WP minor (admits patches only). The
+        # `composer require` modifies the in-CI checkout's composer.json
+        # — that's intentional; the workspace is ephemeral.
+        env:
+          # Authenticate to api.github.com so the fp-mu-plugin VCS dep
+          # doesn't hit the 60-req/hour anonymous rate limit on busy days.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          composer config --global --auth github-oauth.github.com "$GITHUB_TOKEN"
+          composer require --no-interaction --no-progress --no-scripts \
+            "roots/wordpress:~${{ matrix.wp }}.0"
+          composer install --no-interaction --no-progress --no-scripts
+
+      - name: Verify WP core checksums against upstream
+        # Hashes web/wp/* and compares against api.wordpress.org's
+        # published checksums for the installed version. No DB, no
+        # bootstrap.
+        run: |
+          wp core verify-checksums \
+            --path=web/wp \
+            --skip-plugins --skip-themes \
+            --allow-root
+
+      - name: PHP-lint all of WP core
+        # Forks `php -l` per file (parallelised). Any parse error fails
+        # the step and the run log shows the offending file. This is the
+        # primary "PHP X.Y can parse WP Z.W" smoke — it's stronger than
+        # bootstrapping a single entry point because it covers every
+        # file, not just the require-chain reachable from wp-load.php.
+        run: |
+          find web/wp -name '*.php' -print0 \
+            | xargs -0 -n 1 -P 4 php -l > /tmp/lint.out 2>&1 \
+            || { cat /tmp/lint.out; exit 1; }
