@@ -12,7 +12,38 @@ permissions:
   packages: write
 
 jobs:
+  # Determines whether the build job should run.
+  #
+  # In a fork created from this template, skip the very first push while
+  # template-cleanup.yml is still present — cleanup self-deletes the
+  # workflow and then triggers this job manually so the published image
+  # reflects the substituted Dockerfile labels.
+  # On the upstream template itself we always run — build is the smoke
+  # test for template changes.
+  #
+  # (Job-level `if` doesn't allow `hashFiles`, hence this gate-via-output
+  # pattern.)
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          set -euo pipefail
+          if [ "${{ github.repository }}" = "EightOEight/fp-site-template" ]; then
+            echo "should_build=true" >>"$GITHUB_OUTPUT"
+          elif [ -f .github/workflows/template-cleanup.yml ]; then
+            echo "should_build=false" >>"$GITHUB_OUTPUT"
+            echo "Skipping build: template-cleanup.yml is still present (will run after cleanup)."
+          else
+            echo "should_build=true" >>"$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: gate
+    if: ${{ needs.gate.outputs.should_build == 'true' }}
     runs-on: ubuntu-latest
     env:
       REGISTRY: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
@@ -53,6 +84,8 @@ jobs:
           context: .
           load: true
           tags: fp-site:test
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
@@ -83,6 +116,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ${{ steps.tags.outputs.tags }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
