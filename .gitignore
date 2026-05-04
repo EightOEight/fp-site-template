@@ -1,0 +1,38 @@
+# Composer / vendor
+vendor/
+composer.lock
+
+# WordPress core (composer-installed via roots/wordpress; never committed)
+web/wp/
+
+# WordPress runtime files (managed by WP, never committed)
+web/app/uploads/
+web/app/blogs.dir/
+web/app/upgrade/
+web/app/cache/
+web/app/wp-cache-config.php
+web/app/object-cache.php
+
+# Environment + secrets
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.log
+
+# PHPUnit / static analysis
+.phpunit.cache/
+.phpunit.result.cache
+.phpstan.cache/
+
+# Build artefacts
+build/
+dist/
+
+# Node / npm (some plugin builds use it)
+node_modules/
