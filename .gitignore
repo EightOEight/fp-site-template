@@ -13,6 +13,19 @@ web/app/cache/
 web/app/wp-cache-config.php
 web/app/object-cache.php
 
+# Composer-installed plugins / themes / mu-plugins (managed via composer.json
+# and composer/installers — never committed). Custom code (your own theme or
+# plugin) must be unhidden here with `!web/app/<dir>/<your-thing>/`.
+web/app/plugins/*
+!web/app/plugins/.gitkeep
+
+web/app/themes/*
+!web/app/themes/.gitkeep
+
+web/app/mu-plugins/*
+!web/app/mu-plugins/.gitkeep
+!web/app/mu-plugins/00-fp-stack.php
+
 # Environment + secrets
 .env
 .env.*

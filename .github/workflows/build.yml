@@ -1,0 +1,85 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          LOWER_REGISTRY="$(echo "${REGISTRY}" | tr '[:upper:]' '[:lower:]')"
+          TAGS=()
+          TAGS+=("${LOWER_REGISTRY}:${SHORT_SHA}")
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            TAGS+=("${LOWER_REGISTRY}:latest")
+          fi
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VTAG="${GITHUB_REF#refs/tags/}"
+            TAGS+=("${LOWER_REGISTRY}:${VTAG}")
+          fi
+          printf 'tags<<EOF\n%s\nEOF\n' "$(IFS=$'\n'; echo "${TAGS[*]}")" >>"$GITHUB_OUTPUT"
+
+      - name: Build (load locally)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: fp-site:test
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+
+      - name: Smoke test the built image
+        run: |
+          docker run --rm fp-site:test sh -c "
+            set -e
+            test -f /app/web/wp/wp-blog-header.php
+            test -f /app/web/index.php
+            test -f /app/web/wp-config.php
+            test -f /app/config/application.php
+            test -d /app/web/app/mu-plugins/fp/src
+            test -d /app/vendor/humanmade/s3-uploads
+            php -r 'require \"/app/vendor/autoload.php\"; var_dump(class_exists(\"FrankenPress\\\\MuPlugin\"));'
+          "
+
+      - name: Push (multi-tag)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

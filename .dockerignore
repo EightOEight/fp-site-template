@@ -1,0 +1,30 @@
+# Anything not needed by the composer install or runtime stage
+.git
+.github
+.gitignore
+.dockerignore
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+Makefile
+README.md
+CLAUDE.md
+phpcs.xml.dist
+phpstan.neon.dist
+LICENSE
+
+# WordPress runtime files (managed by WP itself)
+web/app/uploads/
+web/app/cache/
+web/app/upgrade/
+web/app/wp-cache-config.php
+web/app/object-cache.php
+
+# We re-resolve composer in the deps stage; don't ship the host's vendor.
+vendor/
+node_modules/
+.phpunit.cache/
+.phpunit.result.cache
+*.log
+.DS_Store
