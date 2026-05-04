@@ -1,0 +1,121 @@
+# FrankenPress site — local development harness.
+#
+# Brings up the site image + MariaDB + Redis (Souin/page cache + invalidator)
+# + MinIO (S3-compatible local storage). On first `docker compose up`, the
+# minio-init service creates the bucket the site uploads media to.
+#
+# Quickstart:
+#   cp .env.example .env
+#   make setup       # composer install + initial WP install
+#   make up          # docker compose up -d
+#   open http://localhost:8080/wp/wp-admin/
+
+services:
+  site:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FP_RUNTIME_IMAGE: ${FP_RUNTIME_IMAGE:-ghcr.io/eightoeight/fp-runtime}
+        FP_RUNTIME_VERSION: ${FP_RUNTIME_VERSION:-php8.3}
+    image: ${FP_SITE_IMAGE:-fp-site:dev}
+    ports:
+      - "8080:8080"
+      - "9145:9145"
+    environment:
+      WP_ENV: ${WP_ENV:-development}
+      WP_HOME: ${WP_HOME:-http://localhost:8080}
+      WP_SITEURL: ${WP_SITEURL:-http://localhost:8080/wp}
+      DB_NAME: ${DB_NAME:-wordpress}
+      DB_USER: ${DB_USER:-wordpress}
+      DB_PASSWORD: ${DB_PASSWORD:-wordpress}
+      DB_HOST: db
+      AUTH_KEY: ${AUTH_KEY:-dev-key}
+      SECURE_AUTH_KEY: ${SECURE_AUTH_KEY:-dev-key}
+      LOGGED_IN_KEY: ${LOGGED_IN_KEY:-dev-key}
+      NONCE_KEY: ${NONCE_KEY:-dev-key}
+      AUTH_SALT: ${AUTH_SALT:-dev-salt}
+      SECURE_AUTH_SALT: ${SECURE_AUTH_SALT:-dev-salt}
+      LOGGED_IN_SALT: ${LOGGED_IN_SALT:-dev-salt}
+      NONCE_SALT: ${NONCE_SALT:-dev-salt}
+      # fp-runtime (Caddy + Souin)
+      REDIS_URL: redis:6379
+      # fp-mu-plugin: S3UploadsBootstrap → MinIO
+      FP_S3_BUCKET: ${FP_S3_BUCKET:-site-media}
+      FP_S3_KEY: ${FP_S3_KEY:-minioadmin}
+      FP_S3_SECRET: ${FP_S3_SECRET:-minioadmin}
+      FP_S3_REGION: ${FP_S3_REGION:-us-east-1}
+      FP_S3_ENDPOINT: ${FP_S3_ENDPOINT:-http://minio:9000}
+      FP_S3_BUCKET_URL: ${FP_S3_BUCKET_URL:-http://localhost:9000/site-media}
+      # fp-mu-plugin: SouinInvalidator
+      FP_SOUIN_REDIS_HOST: redis
+      FP_SOUIN_REDIS_PORT: "6379"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: ${DB_NAME:-wordpress}
+      MARIADB_USER: ${DB_USER:-wordpress}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-wordpress}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${FP_S3_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${FP_S3_SECRET:-minioadmin}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || curl -fsS http://localhost:9000/minio/health/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  # One-shot: create the bucket on first up, then exit.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >-
+      /bin/sh -c "
+      mc alias set fp http://minio:9000 ${FP_S3_KEY:-minioadmin} ${FP_S3_SECRET:-minioadmin} &&
+      mc mb --ignore-existing fp/${FP_S3_BUCKET:-site-media} &&
+      mc anonymous set download fp/${FP_S3_BUCKET:-site-media}
+      "
+
+volumes:
+  db_data:
+  minio_data:
