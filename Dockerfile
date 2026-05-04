@@ -21,7 +21,14 @@ WORKDIR /app
 COPY composer.json composer.lock* ./
 
 # Install runtime deps only — no dev tooling in the final image.
-RUN composer install \
+# Mount a GitHub token (CI) to authenticate api.github.com requests
+# when fetching VCS dist tarballs; anonymous access hits a 60-req/hour
+# rate limit. Local builds without the secret fall through to anonymous.
+RUN --mount=type=secret,id=github_token,target=/run/secrets/github_token \
+    if [ -s /run/secrets/github_token ]; then \
+        composer config --global --auth github-oauth.github.com "$(cat /run/secrets/github_token)"; \
+    fi && \
+    composer install \
         --no-dev \
         --no-interaction \
         --no-progress \
