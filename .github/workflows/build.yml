@@ -77,8 +77,14 @@ jobs:
             TAGS+=("${LOWER_REGISTRY}:latest")
           fi
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VTAG="${GITHUB_REF#refs/tags/}"
+            VTAG="${GITHUB_REF#refs/tags/}"   # e.g. v0.2.1
+            BARE="${VTAG#v}"                  # e.g. 0.2.1
+            # Publish both forms:
+            #   :v0.2.1  — git-tag-shaped, kept for any consumer pinned to it
+            #   :0.2.1   — bare semver, what Helm chart appVersion resolves to
+            #              (Bitnami-style; appVersion shouldn't carry the `v`).
             TAGS+=("${LOWER_REGISTRY}:${VTAG}")
+            TAGS+=("${LOWER_REGISTRY}:${BARE}")
           fi
           printf 'tags<<EOF\n%s\nEOF\n' "$(IFS=$'\n'; echo "${TAGS[*]}")" >>"$GITHUB_OUTPUT"
 
