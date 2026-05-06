@@ -38,11 +38,13 @@ Public docs: **<https://docs.frankenpress.com/components/fp-site-template>**
 
 ## Common edits
 
-- **Add a plugin:** `composer require wpackagist-plugin/<slug>` (composer config wires up wpackagist as a repo).
-- **Add a theme:** `composer require wpackagist-theme/<slug>`.
+- **Add a plugin:** `composer require wpackagist-plugin/<slug>` (composer config wires up wpackagist as a repo). After image rebuild + deploy, activate once with `wp plugin activate <slug>` against the running pod — activation is DB state, not image state, so it persists across releases. Full step-by-step at <https://docs.frankenpress.com/customizing#add-a-plugin>.
+- **Remove a plugin:** `wp plugin deactivate <slug>` against the live cluster, then `composer remove wpackagist-plugin/<slug>` on a branch. Deactivate-before-remove avoids a noisy admin warning every page load. Full flow at <https://docs.frankenpress.com/customizing#remove-a-plugin>.
+- **Add a theme:** `composer require wpackagist-theme/<slug>`. After deploy, `wp theme activate <slug>` (one-time, DB state).
+- **Remove a theme:** `wp theme activate <other>` first (you can't remove the active theme), then `composer remove wpackagist-theme/<slug>` on a branch.
 - **Add custom code:** drop a directory under the right `web/app/*` subtree and commit it. The `.gitignore` ignores composer-installed content but unhides committed paths.
 - **Bump WP core:** edit the `roots/wordpress` constraint in `composer.json` and `composer update roots/wordpress`.
-- **Bump fp-runtime base:** edit the `FROM ghcr.io/eightoeight/fp-runtime:<tag>` in `Dockerfile`, or override at build via `--build-arg FP_RUNTIME_VERSION=<tag>`.
+- **Bump fp-runtime base:** edit the `ARG FP_RUNTIME_VERSION` line in `Dockerfile`, or override at build via `--build-arg FP_RUNTIME_VERSION=<tag>`.
 
 ## Don'ts
 
