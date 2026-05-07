@@ -80,6 +80,16 @@ Config::define( 'SECURE_AUTH_SALT', env( 'SECURE_AUTH_SALT' ) );
 Config::define( 'LOGGED_IN_SALT', env( 'LOGGED_IN_SALT' ) );
 Config::define( 'NONCE_SALT', env( 'NONCE_SALT' ) );
 
+/**
+ * Cron driver.
+ *
+ * In-process pseudo-cron is opt-out via env so the chart can pair this
+ * with its `wpCron` CronJob (which runs `wp cron event run --due-now`).
+ * Defaults to false: a developer running the template without the chart
+ * still gets WP's normal page-load cron behaviour.
+ */
+Config::define( 'DISABLE_WP_CRON', filter_var( env( 'DISABLE_WP_CRON' ) ?: 'false', FILTER_VALIDATE_BOOLEAN ) );
+
 /** SSL behind a reverse proxy (Caddy/Gateway terminates TLS upstream). */
 Config::define( 'FORCE_SSL_ADMIN', filter_var( env( 'FORCE_SSL_ADMIN' ) ?: 'true', FILTER_VALIDATE_BOOLEAN ) );
 if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {
