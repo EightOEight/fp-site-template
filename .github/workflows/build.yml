@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
   packages: write
+  # Required for sigstore keyless OIDC signing — see the "Sign + attest"
+  # step in the build job. Workflow-level so it propagates to every job.
+  id-token: write
 
 jobs:
   # Determines whether the build job should run.
@@ -87,6 +90,9 @@ jobs:
             TAGS+=("${LOWER_REGISTRY}:${BARE}")
           fi
           printf 'tags<<EOF\n%s\nEOF\n' "$(IFS=$'\n'; echo "${TAGS[*]}")" >>"$GITHUB_OUTPUT"
+          # Exposed for cosign — GHCR is case-sensitive and requires the
+          # lowercased registry path in the digest ref.
+          echo "lower_registry=${LOWER_REGISTRY}" >>"$GITHUB_OUTPUT"
 
       - name: Build (load locally)
         uses: docker/build-push-action@v5
@@ -123,6 +129,7 @@ jobs:
 
       - name: Push (multi-arch, multi-tag)
         if: github.event_name != 'pull_request'
+        id: push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -139,3 +146,37 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Generate an SPDX SBOM of the published manifest list and attach it
+      # to the image digest via `cosign attest`. Combined with the cosign
+      # signature in the next step, consumers can audit provenance:
+      #   cosign tree   <registry>/<repo>:<tag>      → lists sigs + atts
+      #   cosign verify <registry>/<repo>:<tag> --certificate-identity-regexp '^https://github.com/EightOEight/' \
+      #                 --certificate-oidc-issuer https://token.actions.githubusercontent.com
+      #
+      # Note: syft scans whichever platform the runner pulls (linux/amd64
+      # by default on ubuntu-latest), so the attested SBOM is the amd64
+      # surface — accurate for the dominant pull path. Per-arch SBOMs
+      # would require a separate scan + attest per platform; deferred
+      # until a real consumer asks for it.
+      - name: Generate SBOM (SPDX)
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.tags.outputs.lower_registry }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign + attest SBOM (keyless OIDC)
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_REF: ${{ steps.tags.outputs.lower_registry }}@${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "$IMAGE_REF"
+          cosign attest --yes --predicate sbom.spdx.json --type spdxjson "$IMAGE_REF"
