@@ -90,8 +90,14 @@ Config::define( 'NONCE_SALT', env( 'NONCE_SALT' ) );
  */
 Config::define( 'DISABLE_WP_CRON', filter_var( env( 'DISABLE_WP_CRON' ) ?: 'false', FILTER_VALIDATE_BOOLEAN ) );
 
-/** SSL behind a reverse proxy (Caddy/Gateway terminates TLS upstream). */
-Config::define( 'FORCE_SSL_ADMIN', filter_var( env( 'FORCE_SSL_ADMIN' ) ?: 'true', FILTER_VALIDATE_BOOLEAN ) );
+/**
+ * SSL behind a reverse proxy (Caddy/Gateway terminates TLS upstream).
+ * Default off in development (local Docker Compose serves plain http on
+ * :8080 — forcing https would 302 every admin request to a port that
+ * isn't TLS-served). Default on everywhere else.
+ */
+$fp_default_force_ssl_admin = 'development' === Config::get( 'WP_ENV' ) ? 'false' : 'true';
+Config::define( 'FORCE_SSL_ADMIN', filter_var( env( 'FORCE_SSL_ADMIN' ) ?: $fp_default_force_ssl_admin, FILTER_VALIDATE_BOOLEAN ) );
 if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {
 	$_SERVER['HTTPS'] = 'on';
 }

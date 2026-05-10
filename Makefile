@@ -24,8 +24,8 @@ logs: ## Tail the site logs
 shell: ## Bash into the running site container
 	docker compose exec site bash
 
-wp: ## Run wp-cli inside the site container (e.g. `make wp -- core install ...`)
-	docker compose exec site wp --allow-root $(filter-out $@,$(MAKECMDGOALS))
+wp: ## Run wp-cli inside the site container. Example: make wp ARGS="plugin list"
+	docker compose exec site wp --allow-root --path=/app/web/wp $(ARGS)
 
 lint: ## phpcs against config/ and any custom mu-plugins
 	docker run --rm -v "$$PWD:/app" -w /app composer:2 install --prefer-dist --no-interaction --no-progress
@@ -43,7 +43,3 @@ reset: down ## Wipe local state and rebuild from scratch
 
 clean: down ## Tear everything down + remove the dev image
 	docker rmi $(IMAGE) 2>/dev/null || true
-
-# Allow `make wp -- ...` style invocation
-%:
-	@:
