@@ -49,7 +49,7 @@ Public docs: **<https://docs.frankenpress.com/components/site-template>**
 ## Don'ts
 
 - **Don't commit `web/wp/`, `vendor/`, `.env`, `node_modules/`, or `web/app/uploads/`.** The `.gitignore` already covers these.
-- **Don't put real secrets in `.env`** — use `wp dotenv salts generate` for local dev keys; production injects via Helm values + Secrets.
+- **Don't put real secrets in `.env`** — local dev keeps the `dev-key` / `dev-salt` defaults in `docker-compose.yml`; production injects real keys/salts via Helm values + Secrets.
 - **Don't edit `web/wp-config.php`** to add config — it's a thin loader. All config lives in `config/application.php` and `config/environments/*.php`.
 - **Don't relax the lockdown constants.** They're not a setting; they're a load-bearing safety property. If you genuinely need them off (developer-only environment, etc.), you understand what you're doing.
 - **Don't bake mu-plugin config into `application.php`.** It reads `FP_S3_*` and `FP_SOUIN_*` env vars itself; defining those constants directly may double-define.
@@ -61,7 +61,7 @@ Public docs: **<https://docs.frankenpress.com/components/site-template>**
 - `make setup` — first-time bootstrap (composer install, `.env` from `.env.example`)
 - `make up` — start the local stack (site + db + redis + minio)
 - `make down` — stop and drop volumes
-- `make wp -- <wp-cli args>` — run wp-cli in the site container
+- `make wp ARGS="<wp-cli args>"` — run wp-cli in the site container (the recipe injects `--allow-root --path=/app/web/wp`)
 - `make lint` — phpcs against `config/` and any custom mu-plugins
 - `make logs` — tail site logs
 - `make shell` — bash into the site container
