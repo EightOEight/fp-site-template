@@ -47,7 +47,7 @@ Local Docker Compose dev — site + MariaDB + Redis + MinIO on your machine. For
      --skip-email"
    ```
 
-6. **Log in** at http://localhost:8080/wp/wp-admin/. In local dev the "Update WordPress" / "Update Plugins" / "Update Themes" buttons are **enabled** — handy for driving premium-theme installers end-to-end. In-cluster (where `KUBERNETES_SERVICE_HOST` is kubelet-injected), the same UIs are disabled because the image is the source of truth. The gate lives in `config/application.php`.
+6. **Log in** at http://localhost:8080/wp/wp-admin/. In local dev the "Update WordPress" / "Update Plugins" / "Update Themes" buttons are **enabled** — handy for installing block plugins or evaluation themes during design work. In-cluster (where `KUBERNETES_SERVICE_HOST` is kubelet-injected), the same UIs are disabled because the image is the source of truth. The gate lives in `config/application.php`.
 
 7. **Upload an image** in the Media Library. It lands in MinIO at http://localhost:9001 (login `minioadmin` / `minioadmin`).
 
@@ -106,7 +106,7 @@ The full reference is in [`.env.example`](./.env.example). Highlights:
 
 ## Hardening (the lockdown)
 
-`config/application.php` gates the two filesystem-mod constants on `KUBERNETES_SERVICE_HOST` — locked in-cluster, relaxed out-of-cluster so developers can drive premium-theme installers end-to-end:
+`config/application.php` gates the two filesystem-mod constants on `KUBERNETES_SERVICE_HOST` — locked in-cluster, relaxed out-of-cluster so developers can install block plugins / evaluation themes / etc. during design work:
 
 ```php
 $fp_in_kubernetes = (bool) getenv( 'KUBERNETES_SERVICE_HOST' );
