@@ -17,7 +17,7 @@ Public docs: **<https://docs.frankenpress.com/components/site-template>**
 ## File layout (Bedrock)
 
 - `composer.json` — slim deps. `roots/wordpress` (no-content WP core), `roots/wp-config`, `roots/bedrock-autoloader` (loads composer-installed mu-plugins), `roots/bedrock-disallow-indexing`, `vlucas/phpdotenv`, `oscarotero/env`, `frankenpress/mu-plugin`, `wpackagist-theme/twentytwentyfive` as a default theme. **No WooCommerce, no opinionated plugins.**
-- `config/application.php` — env-driven config. `DISALLOW_FILE_EDIT` / `DISALLOW_FILE_MODS` are **gated on `KUBERNETES_SERVICE_HOST`** — locked in-cluster, relaxed out-of-cluster so local dev can drive premium-theme installers. `AUTOMATIC_UPDATER_DISABLED` / `WP_AUTO_UPDATE_CORE` in `production.php` remain hard-coded.
+- `config/application.php` — env-driven config. `DISALLOW_FILE_EDIT` / `DISALLOW_FILE_MODS` are **gated on `KUBERNETES_SERVICE_HOST`** — locked in-cluster, relaxed out-of-cluster so local dev can install block plugins / evaluation themes during design work. `AUTOMATIC_UPDATER_DISABLED` / `WP_AUTO_UPDATE_CORE` in `production.php` remain hard-coded.
 - `config/environments/{development,staging,production}.php` — per-env overrides (debug flags, auto-update disabled).
 - `web/index.php` / `web/wp-config.php` — Bedrock front-controller + thin loader.
 - `web/wp/` — composer-installed WP core (gitignored).
@@ -31,7 +31,7 @@ Public docs: **<https://docs.frankenpress.com/components/site-template>**
 
 ## Conventions
 
-- **Lockdown is gated on `KUBERNETES_SERVICE_HOST`.** In-cluster, `DISALLOW_FILE_EDIT` / `DISALLOW_FILE_MODS` are `true` so admin-side installs (which would land on ephemeral pod disk and replicate inconsistently) hard-fail. Out-of-cluster (docker-compose, bare local) both are `false` so developers can drive premium-theme installers end-to-end and promote the result into the image + DB. The kubelet injects `KUBERNETES_SERVICE_HOST` on every pod — prod can't accidentally land in the relaxed mode.
+- **Lockdown is gated on `KUBERNETES_SERVICE_HOST`.** In-cluster, `DISALLOW_FILE_EDIT` / `DISALLOW_FILE_MODS` are `true` so admin-side installs (which would land on ephemeral pod disk and replicate inconsistently) hard-fail. Out-of-cluster (docker-compose, bare local) both are `false` so developers can install block plugins / evaluation themes during design work and promote the result into the image + DB via `wp fp snapshot`. The kubelet injects `KUBERNETES_SERVICE_HOST` on every pod — prod can't accidentally land in the relaxed mode.
 - **The site image is immutable.** All code (WP core + plugins + themes + custom code) is baked at build time. Releases happen via `git tag vX.Y.Z` → CI builds → `helm upgrade --set image.tag=vX.Y.Z`.
 - **Bedrock layout is the contract.** `web/wp` for core, `web/app` for content, `config/` for env-driven settings. Don't flatten or rearrange.
 - **`humanmade/s3-uploads` is a transitive dep** of `frankenpress/mu-plugin`. Don't `composer require` it directly — that risks version drift.

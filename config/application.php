@@ -19,9 +19,9 @@
  * The lockdown constants (`DISALLOW_FILE_EDIT`, `DISALLOW_FILE_MODS`)
  * are gated on `KUBERNETES_SERVICE_HOST`: locked in-cluster (the image
  * is the source of truth and UI-written files vanish on pod restart),
- * relaxed out-of-cluster so local dev can drive premium-theme installers
- * (e.g. The7's "Pre-Made Website Templates" importer) end-to-end and
- * promote the result into the image + DB.
+ * relaxed out-of-cluster so local dev can drive Site Editor, install
+ * block plugins or evaluation themes, and round-trip the result into
+ * the image + DB via `wp fp snapshot`.
  *
  * @package FrankenPress\Site
  */
@@ -114,9 +114,9 @@ if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X
  * inconsistently across replicas.
  *
  * Out-of-cluster (docker-compose, bare local): both are relaxed so a
- * developer can drive premium-theme installers (e.g. The7's "Pre-Made
- * Website Templates" importer) end-to-end, then promote the resulting
- * code into the image and the resulting state into a DB snapshot.
+ * developer can use Site Editor freely, install block plugins or
+ * evaluation themes, and promote the resulting code into the image
+ * and the resulting state into a snapshot via `wp fp snapshot`.
  * `KUBERNETES_SERVICE_HOST` can't appear in a local stack unless
  * something fakes it, so prod can't accidentally land in the relaxed
  * mode.
