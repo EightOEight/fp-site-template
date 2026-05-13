@@ -16,7 +16,7 @@ Public docs: **<https://docs.frankenpress.com/components/site-template>**
 
 ## File layout (Bedrock)
 
-- `composer.json` — slim deps. `roots/wordpress` (no-content WP core), `roots/wp-config`, `roots/bedrock-autoloader` (loads composer-installed mu-plugins), `roots/bedrock-disallow-indexing`, `vlucas/phpdotenv`, `oscarotero/env`, `frankenpress/mu-plugin`, `wpackagist-theme/twentytwentyfive` as a default theme. **No WooCommerce, no opinionated plugins.**
+- `composer.json` — slim deps. `roots/wordpress` (no-content WP core), `roots/wp-config`, `roots/bedrock-autoloader` (loads composer-installed mu-plugins), `roots/bedrock-disallow-indexing`, `vlucas/phpdotenv`, `oscarotero/env`, `frankenpress/mu-plugin`, `wpackagist-theme/twentytwentyfive` as a default theme. **No WooCommerce, no opinionated plugins.** `require-dev` includes `wpackagist-plugin/create-block-theme` for the Phase 3 designer flow (`wp fp snapshot` works without it; the plugin is only needed when designers want to save block-theme customizations back to theme files instead of shipping them as DB rows). `--no-dev` builds keep the plugin out of the production image.
 - `config/application.php` — env-driven config. `DISALLOW_FILE_EDIT` / `DISALLOW_FILE_MODS` are **gated on `KUBERNETES_SERVICE_HOST`** — locked in-cluster, relaxed out-of-cluster so local dev can install block plugins / evaluation themes during design work. `AUTOMATIC_UPDATER_DISABLED` / `WP_AUTO_UPDATE_CORE` in `production.php` remain hard-coded.
 - `config/environments/{development,staging,production}.php` — per-env overrides (debug flags, auto-update disabled).
 - `web/index.php` / `web/wp-config.php` — Bedrock front-controller + thin loader.
