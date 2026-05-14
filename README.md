@@ -60,10 +60,12 @@ Once a designer has iterated locally (Site Editor templates, global styles, navi
 ```bash
 brew install frankenpress/tap/fp
 cd path/to/your-site
-fp snapshot                # prompts for slug + note (Enter accepts the suggested defaults)
+fp snapshot                # default slug is a UTC timestamp; --slug=<name> for a milestone marker
 ```
 
-This writes `web/imports/<slug>/` containing the manifest, scoped templates / options / attachments, plus referenced upload binaries. Review the diff, commit, push, open a site-repo PR. The chart's install Job picks up the snapshot on the next image release and applies it on-cluster. Full walkthrough: [designer flow](https://docs.frankenpress.com/designer-flow).
+This writes `web/imports/<slug>/` containing the manifest, scoped templates / options / attachments, plus referenced upload binaries. Review the diff, commit, push, open a site-repo PR. The chart's install Job (charts ≥ v0.12.0) picks the snapshot with the highest `manifest.created` on the next image release and applies it on-cluster. Full walkthrough: [designer flow](https://docs.frankenpress.com/designer-flow).
+
+**Snapshots accumulate.** Older `web/imports/<timestamp>/` dirs are intentional history — git log + commit messages carry the human-readable "what changed", the chart picks latest at deploy time, so there's no `git rm`-the-previous-slug step in the release flow. Tenants who want a leaner image can `git rm` very old dirs as housekeeping; correctness doesn't depend on it.
 
 `fp` reads optional configuration from `frankenpress.toml` at the repo root. The empty file is valid (every default works for a site-template-shaped repo); a custom layout overrides via:
 
