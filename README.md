@@ -53,6 +53,17 @@ Local Docker Compose dev — site + MariaDB + Redis + MinIO on your machine. For
 
 **Next:** [Your first site](https://docs.frankenpress.com/your-first-site) (fork → image → cluster) or [Customizing](https://docs.frankenpress.com/customizing) (add plugins and themes).
 
+## Post-fork checklist
+
+Beyond the local Quickstart above, getting your forked site to production:
+
+- [ ] **Composer + Dockerfile placeholder rename.** Done automatically by `.github/workflows/template-cleanup.yml` on first push (substitutes `your-org/<your-site>` placeholders). Verify the workflow ran green before tagging your first release.
+- [ ] **Generate production auth keys + salts.** `config/application.php` requires all eight at boot — missing values fail loud, never silently degrade session crypto. Generate via `wp dotenv salts generate` (with [`aaemnnosttv/wp-cli-dotenv-command`](https://github.com/aaemnnosttv/wp-cli-dotenv-command) installed) or grab a fresh set from the [WP secret-key API](https://api.wordpress.org/secret-key/1.1/salt/). Inject via your cluster's secret manager — never commit them.
+- [ ] **GHCR access.** The build workflow pushes to `ghcr.io/<your-org>/<your-site>` automatically. If your cluster pulls from a private GHCR, configure pull credentials (a fine-grained PAT with `read:packages` for a service account, or workload-identity equivalent).
+- [ ] **Production Secrets in your cluster.** Auth keys/salts, DB credentials, `FP_S3_*` (uploads refused if missing), `FP_SOUIN_REDIS_*`, and `FP_SMTP_*` if using SMTP. The chart consumes these from a referenced Kubernetes Secret; see the [`charts`](https://github.com/frankenpress/charts) values reference.
+
+Full cluster walkthrough: [Your first site](https://docs.frankenpress.com/your-first-site).
+
 ## Designer flow — capturing local design state
 
 Once a designer has iterated locally (Site Editor templates, global styles, navigation, site identity), capture the state with the [`fp`](https://github.com/frankenpress/fp) host-side CLI:
